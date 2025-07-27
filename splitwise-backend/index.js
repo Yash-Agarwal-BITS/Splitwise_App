@@ -4,8 +4,15 @@ require("dotenv").config();
 
 app.use(express.json());
 app.use(require("cors")());
+
+// Routes
 const userRoutes = require("./src/routes/userRoutes");
+const groupRoutes = require("./src/routes/groupRoutes");
+const expenseRoutes = require("./src/routes/expenseRoutes");
+
 app.use("/api/users", userRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/expenses", expenseRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is working!");
