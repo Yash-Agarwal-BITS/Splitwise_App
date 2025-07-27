@@ -3,42 +3,42 @@ const supabase = require("../utils/supabaseClient");
 // Create a new expense (both group and personal)
 exports.createExpense = async (req, res) => {
   try {
-    const { 
-      group_id, 
-      amount, 
-      description, 
-      expense_type, 
-      participants // Array of {user_id, share}
+    const {
+      group_id,
+      amount,
+      description,
+      expense_type,
+      participants, // Array of {user_id, share}
     } = req.body;
-    
+
     const paid_by = req.user?.user_id || "temp-user-id"; // Will be replaced with actual auth
 
     // Validate input
     if (!amount || amount <= 0) {
       return res.status(400).json({
-        error: "Amount must be greater than 0"
+        error: "Amount must be greater than 0",
       });
     }
 
     if (!participants || participants.length === 0) {
       return res.status(400).json({
-        error: "At least one participant is required"
+        error: "At least one participant is required",
       });
     }
 
     // Validate expense type
-    const validTypes = ['group', 'personal'];
+    const validTypes = ["group", "personal"];
     if (!expense_type || !validTypes.includes(expense_type)) {
       return res.status(400).json({
-        error: "expense_type must be 'group' or 'personal'"
+        error: "expense_type must be 'group' or 'personal'",
       });
     }
 
     // For group expenses, validate group exists and user is member
-    if (expense_type === 'group') {
+    if (expense_type === "group") {
       if (!group_id) {
         return res.status(400).json({
-          error: "group_id is required for group expenses"
+          error: "group_id is required for group expenses",
         });
       }
 
@@ -51,7 +51,7 @@ exports.createExpense = async (req, res) => {
 
       if (groupError || !group) {
         return res.status(404).json({
-          error: "Group not found"
+          error: "Group not found",
         });
       }
 
@@ -65,33 +65,40 @@ exports.createExpense = async (req, res) => {
 
       if (memberError || !membership) {
         return res.status(403).json({
-          error: "You must be a group member to add group expenses"
+          error: "You must be a group member to add group expenses",
         });
       }
     }
 
     // For personal expenses, group_id should be null
-    const finalGroupId = expense_type === 'personal' ? null : group_id;
+    const finalGroupId = expense_type === "personal" ? null : group_id;
 
     // Validate participants total shares
-    const totalShares = participants.reduce((sum, p) => sum + (p.share || 0), 0);
+    const totalShares = participants.reduce(
+      (sum, p) => sum + (p.share || 0),
+      0
+    );
     if (Math.abs(totalShares - amount) > 0.01) {
       return res.status(400).json({
-        error: "Total participant shares must equal the expense amount"
+        error: "Total participant shares must equal the expense amount",
       });
     }
 
     // Create expense
     const { data: expenseData, error: expenseError } = await supabase
       .from("expenses")
-      .insert([{
-        group_id: finalGroupId,
-        paid_by: paid_by,
-        amount: amount,
-        description: description || null,
-        expense_type: expense_type
-      }])
-      .select("expense_id, group_id, paid_by, amount, description, expense_type, created_at");
+      .insert([
+        {
+          group_id: finalGroupId,
+          paid_by: paid_by,
+          amount: amount,
+          description: description || null,
+          expense_type: expense_type,
+        },
+      ])
+      .select(
+        "expense_id, group_id, paid_by, amount, description, expense_type, created_at"
+      );
 
     if (expenseError) {
       return res.status(400).json({ error: expenseError.message });
@@ -100,10 +107,10 @@ exports.createExpense = async (req, res) => {
     const expense = expenseData[0];
 
     // Add participants
-    const participantInserts = participants.map(participant => ({
+    const participantInserts = participants.map((participant) => ({
       expense_id: expense.expense_id,
       user_id: participant.user_id,
-      share: participant.share
+      share: participant.share,
     }));
 
     const { data: participantsData, error: participantsError } = await supabase
@@ -117,14 +124,14 @@ exports.createExpense = async (req, res) => {
         .from("expenses")
         .delete()
         .eq("expense_id", expense.expense_id);
-      
+
       return res.status(400).json({ error: participantsError.message });
     }
 
     res.status(201).json({
       message: "Expense created successfully",
       expense: expense,
-      participants: participantsData
+      participants: participantsData,
     });
   } catch (error) {
     console.error("Create expense error:", error);
@@ -138,9 +145,7 @@ exports.getUserExpenses = async (req, res) => {
     const user_id = req.user?.user_id || req.params.user_id || "temp-user-id";
     const { expense_type, group_id } = req.query;
 
-    let query = supabase
-      .from("expenses")
-      .select(`
+    let query = supabase.from("expenses").select(`
         expense_id,
         group_id,
         paid_by,
@@ -170,7 +175,10 @@ exports.getUserExpenses = async (req, res) => {
     }
 
     // Only get expenses where user is either the payer or a participant
-    const { data: allExpenses, error: expenseError } = await query.order("created_at", { ascending: false });
+    const { data: allExpenses, error: expenseError } = await query.order(
+      "created_at",
+      { ascending: false }
+    );
 
     if (expenseError) {
       return res.status(400).json({ error: expenseError.message });
@@ -178,7 +186,7 @@ exports.getUserExpenses = async (req, res) => {
 
     // Filter expenses where user is involved (paid or participating)
     const userExpenseIds = [];
-    
+
     // Get expense IDs where user is a participant
     const { data: participations, error: participationError } = await supabase
       .from("expense_participants")
@@ -186,12 +194,14 @@ exports.getUserExpenses = async (req, res) => {
       .eq("user_id", user_id);
 
     if (!participationError && participations) {
-      participations.forEach(p => userExpenseIds.push(p.expense_id));
+      participations.forEach((p) => userExpenseIds.push(p.expense_id));
     }
 
     // Filter expenses
-    const userExpenses = allExpenses.filter(expense => 
-      expense.paid_by === user_id || userExpenseIds.includes(expense.expense_id)
+    const userExpenses = allExpenses.filter(
+      (expense) =>
+        expense.paid_by === user_id ||
+        userExpenseIds.includes(expense.expense_id)
     );
 
     // Get participants for each expense
@@ -199,7 +209,8 @@ exports.getUserExpenses = async (req, res) => {
       userExpenses.map(async (expense) => {
         const { data: participants, error: partError } = await supabase
           .from("expense_participants")
-          .select(`
+          .select(
+            `
             participant_id,
             user_id,
             share,
@@ -208,12 +219,13 @@ exports.getUserExpenses = async (req, res) => {
               username,
               email
             )
-          `)
+          `
+          )
           .eq("expense_id", expense.expense_id);
 
         return {
           ...expense,
-          participants: participants || []
+          participants: participants || [],
         };
       })
     );
@@ -221,7 +233,7 @@ exports.getUserExpenses = async (req, res) => {
     res.status(200).json({
       message: "User expenses retrieved successfully",
       expenses: expensesWithParticipants,
-      count: expensesWithParticipants.length
+      count: expensesWithParticipants.length,
     });
   } catch (error) {
     console.error("Get user expenses error:", error);
@@ -243,14 +255,15 @@ exports.getGroupExpenses = async (req, res) => {
 
     if (groupError || !group) {
       return res.status(404).json({
-        error: "Group not found"
+        error: "Group not found",
       });
     }
 
     // Get group expenses
     const { data: expenses, error: expenseError } = await supabase
       .from("expenses")
-      .select(`
+      .select(
+        `
         expense_id,
         group_id,
         paid_by,
@@ -263,7 +276,8 @@ exports.getGroupExpenses = async (req, res) => {
           username,
           email
         )
-      `)
+      `
+      )
       .eq("group_id", group_id)
       .eq("expense_type", "group")
       .order("created_at", { ascending: false });
@@ -277,7 +291,8 @@ exports.getGroupExpenses = async (req, res) => {
       expenses.map(async (expense) => {
         const { data: participants, error: partError } = await supabase
           .from("expense_participants")
-          .select(`
+          .select(
+            `
             participant_id,
             user_id,
             share,
@@ -286,12 +301,13 @@ exports.getGroupExpenses = async (req, res) => {
               username,
               email
             )
-          `)
+          `
+          )
           .eq("expense_id", expense.expense_id);
 
         return {
           ...expense,
-          participants: participants || []
+          participants: participants || [],
         };
       })
     );
@@ -300,7 +316,7 @@ exports.getGroupExpenses = async (req, res) => {
       message: "Group expenses retrieved successfully",
       group: group,
       expenses: expensesWithParticipants,
-      count: expensesWithParticipants.length
+      count: expensesWithParticipants.length,
     });
   } catch (error) {
     console.error("Get group expenses error:", error);
@@ -316,7 +332,8 @@ exports.getExpenseDetails = async (req, res) => {
     // Get expense details
     const { data: expense, error: expenseError } = await supabase
       .from("expenses")
-      .select(`
+      .select(
+        `
         expense_id,
         group_id,
         paid_by,
@@ -334,20 +351,22 @@ exports.getExpenseDetails = async (req, res) => {
           username,
           email
         )
-      `)
+      `
+      )
       .eq("expense_id", expense_id)
       .single();
 
     if (expenseError || !expense) {
       return res.status(404).json({
-        error: "Expense not found"
+        error: "Expense not found",
       });
     }
 
     // Get participants
     const { data: participants, error: participantsError } = await supabase
       .from("expense_participants")
-      .select(`
+      .select(
+        `
         participant_id,
         user_id,
         share,
@@ -356,7 +375,8 @@ exports.getExpenseDetails = async (req, res) => {
           username,
           email
         )
-      `)
+      `
+      )
       .eq("expense_id", expense_id);
 
     if (participantsError) {
@@ -367,8 +387,8 @@ exports.getExpenseDetails = async (req, res) => {
       message: "Expense details retrieved successfully",
       expense: {
         ...expense,
-        participants: participants || []
-      }
+        participants: participants || [],
+      },
     });
   } catch (error) {
     console.error("Get expense details error:", error);
@@ -384,11 +404,12 @@ exports.calculateUserBalances = async (req, res) => {
 
     let balances = [];
 
-    if (!balance_type || balance_type === 'personal') {
+    if (!balance_type || balance_type === "personal") {
       // Calculate personal balances
       const { data: personalExpenses, error: personalError } = await supabase
         .from("expenses")
-        .select(`
+        .select(
+          `
           expense_id,
           paid_by,
           amount,
@@ -396,24 +417,29 @@ exports.calculateUserBalances = async (req, res) => {
             user_id,
             share
           )
-        `)
+        `
+        )
         .eq("expense_type", "personal")
         .is("group_id", null);
 
       if (!personalError && personalExpenses) {
-        const personalBalances = calculateBalancesFromExpenses(personalExpenses, user_id);
+        const personalBalances = calculateBalancesFromExpenses(
+          personalExpenses,
+          user_id
+        );
         balances.push({
-          type: 'personal',
-          balances: personalBalances
+          type: "personal",
+          balances: personalBalances,
         });
       }
     }
 
-    if (!balance_type || balance_type === 'group') {
+    if (!balance_type || balance_type === "group") {
       // Calculate group balances
       let groupQuery = supabase
         .from("expenses")
-        .select(`
+        .select(
+          `
           expense_id,
           paid_by,
           amount,
@@ -426,7 +452,8 @@ exports.calculateUserBalances = async (req, res) => {
             user_id,
             share
           )
-        `)
+        `
+        )
         .eq("expense_type", "group");
 
       if (group_id) {
@@ -436,10 +463,13 @@ exports.calculateUserBalances = async (req, res) => {
       const { data: groupExpenses, error: groupError } = await groupQuery;
 
       if (!groupError && groupExpenses) {
-        const groupBalances = calculateGroupBalancesFromExpenses(groupExpenses, user_id);
+        const groupBalances = calculateGroupBalancesFromExpenses(
+          groupExpenses,
+          user_id
+        );
         balances.push({
-          type: 'group',
-          balances: groupBalances
+          type: "group",
+          balances: groupBalances,
         });
       }
     }
@@ -447,10 +477,66 @@ exports.calculateUserBalances = async (req, res) => {
     res.status(200).json({
       message: "User balances calculated successfully",
       user_id: user_id,
-      balances: balances
+      balances: balances,
     });
   } catch (error) {
     console.error("Calculate balances error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Update an expense
+exports.updateExpense = async (req, res) => {
+  try {
+    const { expense_id } = req.params;
+    const { amount, description } = req.body;
+    const updateData = {};
+    if (amount !== undefined) updateData.amount = amount;
+    if (description !== undefined) updateData.description = description;
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: "No data provided for update" });
+    }
+    updateData.updated_at = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("expenses")
+      .update(updateData)
+      .eq("expense_id", expense_id)
+      .select(
+        "expense_id, group_id, paid_by, amount, description, expense_type, created_at, updated_at"
+      );
+    if (error || !data || data.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Expense not found or update failed" });
+    }
+    res
+      .status(200)
+      .json({ message: "Expense updated successfully", expense: data[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Delete an expense
+exports.deleteExpense = async (req, res) => {
+  try {
+    const { expense_id } = req.params;
+    // Optionally, delete expense_participants related to this expense as well
+    await supabase
+      .from("expense_participants")
+      .delete()
+      .eq("expense_id", expense_id);
+    const { error } = await supabase
+      .from("expenses")
+      .delete()
+      .eq("expense_id", expense_id);
+    if (error) {
+      return res
+        .status(404)
+        .json({ error: "Expense not found or delete failed" });
+    }
+    res.status(200).json({ message: "Expense deleted successfully" });
+  } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -459,11 +545,11 @@ exports.calculateUserBalances = async (req, res) => {
 function calculateBalancesFromExpenses(expenses, userId) {
   const balances = {};
 
-  expenses.forEach(expense => {
+  expenses.forEach((expense) => {
     const paidBy = expense.paid_by;
     const amount = expense.amount;
 
-    expense.expense_participants.forEach(participant => {
+    expense.expense_participants.forEach((participant) => {
       const participantId = participant.user_id;
       const share = participant.share;
 
@@ -485,16 +571,17 @@ function calculateBalancesFromExpenses(expenses, userId) {
 
   // Calculate net balances
   const netBalances = [];
-  Object.keys(balances).forEach(otherUserId => {
+  Object.keys(balances).forEach((otherUserId) => {
     const balance = balances[otherUserId];
     const netAmount = balance.owed - balance.owes;
-    
-    if (Math.abs(netAmount) > 0.01) { // Only include non-zero balances
+
+    if (Math.abs(netAmount) > 0.01) {
+      // Only include non-zero balances
       netBalances.push({
         other_user_id: otherUserId,
         net_balance: netAmount, // Positive = they owe you, Negative = you owe them
         you_owe: balance.owes,
-        they_owe: balance.owed
+        they_owe: balance.owed,
       });
     }
   });
@@ -506,22 +593,22 @@ function calculateBalancesFromExpenses(expenses, userId) {
 function calculateGroupBalancesFromExpenses(expenses, userId) {
   const groupBalances = {};
 
-  expenses.forEach(expense => {
+  expenses.forEach((expense) => {
     const groupId = expense.group_id;
-    const groupName = expense.groups?.group_name || 'Unknown Group';
+    const groupName = expense.groups?.group_name || "Unknown Group";
 
     if (!groupBalances[groupId]) {
       groupBalances[groupId] = {
         group_id: groupId,
         group_name: groupName,
-        balances: {}
+        balances: {},
       };
     }
 
     const paidBy = expense.paid_by;
     const amount = expense.amount;
 
-    expense.expense_participants.forEach(participant => {
+    expense.expense_participants.forEach((participant) => {
       const participantId = participant.user_id;
       const share = participant.share;
 
@@ -543,20 +630,20 @@ function calculateGroupBalancesFromExpenses(expenses, userId) {
 
   // Format group balances
   const formattedGroupBalances = [];
-  Object.keys(groupBalances).forEach(groupId => {
+  Object.keys(groupBalances).forEach((groupId) => {
     const group = groupBalances[groupId];
     const netBalances = [];
 
-    Object.keys(group.balances).forEach(otherUserId => {
+    Object.keys(group.balances).forEach((otherUserId) => {
       const balance = group.balances[otherUserId];
       const netAmount = balance.owed - balance.owes;
-      
+
       if (Math.abs(netAmount) > 0.01) {
         netBalances.push({
           other_user_id: otherUserId,
           net_balance: netAmount,
           you_owe: balance.owes,
-          they_owe: balance.owed
+          they_owe: balance.owed,
         });
       }
     });
@@ -565,7 +652,7 @@ function calculateGroupBalancesFromExpenses(expenses, userId) {
       formattedGroupBalances.push({
         group_id: groupId,
         group_name: group.group_name,
-        balances: netBalances
+        balances: netBalances,
       });
     }
   });

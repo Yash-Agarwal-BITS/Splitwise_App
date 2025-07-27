@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { 
+const {
   createExpense,
   getUserExpenses,
   getGroupExpenses,
   getExpenseDetails,
-  calculateUserBalances
+  calculateUserBalances,
+  updateExpense,
+  deleteExpense,
 } = require("../controllers/expenseController");
 
 // Create a new expense (personal or group)
@@ -20,6 +22,12 @@ router.get("/group/:group_id", getGroupExpenses);
 
 // Get expense details by ID
 router.get("/:expense_id", getExpenseDetails);
+
+// Update an expense
+router.put("/:expense_id", updateExpense);
+
+// Delete an expense
+router.delete("/:expense_id", deleteExpense);
 
 // Calculate balances for a user
 // Query params: ?balance_type=personal|group&group_id=uuid
