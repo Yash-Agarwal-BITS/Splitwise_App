@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const authenticateToken = require("../middleware/auth");
 const {
   createGroup,
   addUserToGroup,
@@ -10,11 +11,14 @@ const {
   deleteGroup,
 } = require("../controllers/groupController");
 
+// Protect all group routes
+router.use(authenticateToken);
+
 // Create a new group
 router.post("/", createGroup);
 
 // Get all groups for a user
-router.get("/user/:user_id?", getUserGroups);
+router.get("/user/:user_id", getUserGroups);
 
 // Add user to group
 router.post("/:group_id/members", addUserToGroup);

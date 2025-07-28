@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const authenticateToken = require("../middleware/auth");
 const {
   registerUser,
   loginUser,
@@ -14,6 +15,9 @@ router.post("/register", registerUser);
 
 // User login
 router.post("/login", loginUser);
+
+// Protect all routes below this line
+router.use(authenticateToken);
 
 // Get all users
 router.get("/", getAllUsers);
