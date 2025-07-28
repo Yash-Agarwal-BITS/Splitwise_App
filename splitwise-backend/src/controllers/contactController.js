@@ -4,7 +4,13 @@ const supabase = require("../utils/supabaseClient");
 exports.addFriend = async (req, res) => {
   try {
     const { friend_email } = req.body;
-    const user_id = req.user?.user_id || "temp-user-id";
+    const user_id = req.user?.user_id;
+
+    if (!user_id) {
+      return res.status(401).json({
+        error: "Authentication required"
+      });
+    }
 
     // Find the friend by email
     const { data: friendUser, error: friendError } = await supabase
@@ -76,7 +82,13 @@ exports.addFriend = async (req, res) => {
 exports.removeFriend = async (req, res) => {
   try {
     const { friend_user_id } = req.params;
-    const user_id = req.user?.user_id || "temp-user-id";
+    const user_id = req.user?.user_id;
+
+    if (!user_id) {
+      return res.status(401).json({
+        error: "Authentication required"
+      });
+    }
 
     // Delete both directions of the friendship
     const { error: deleteError } = await supabase
@@ -100,7 +112,13 @@ exports.removeFriend = async (req, res) => {
 // Get user's friends list
 exports.getFriendsList = async (req, res) => {
   try {
-    const user_id = req.user?.user_id || req.params.user_id || "temp-user-id";
+    const user_id = req.user?.user_id || req.params.user_id;
+
+    if (!user_id) {
+      return res.status(401).json({
+        error: "Authentication required"
+      });
+    }
 
     // Get friends (since we store both directions, we can just query one way)
     const { data: contacts, error: contactsError } = await supabase
@@ -144,7 +162,13 @@ exports.getFriendsList = async (req, res) => {
 // Get unified contact list (friends + all group members)
 exports.getUnifiedContactList = async (req, res) => {
   try {
-    const user_id = req.user?.user_id || req.params.user_id || "temp-user-id";
+    const user_id = req.user?.user_id || req.params.user_id;
+
+    if (!user_id) {
+      return res.status(401).json({
+        error: "Authentication required"
+      });
+    }
 
     let allContacts = [];
 

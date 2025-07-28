@@ -9,10 +9,12 @@ app.use(require("cors")());
 const userRoutes = require("./src/routes/userRoutes");
 const groupRoutes = require("./src/routes/groupRoutes");
 const expenseRoutes = require("./src/routes/expenseRoutes");
+const contactRoutes = require("./src/routes/contactRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/contacts", contactRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is working!");
