@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS expenses CASCADE;
 DROP TABLE IF EXISTS group_members CASCADE;
 DROP TABLE IF EXISTS groups CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS user_contacts CASCADE;
 
 -- 2. Create users table
 CREATE TABLE users (
@@ -46,7 +47,17 @@ CREATE TABLE expenses (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 6. Create expense_participants table (for future use)
+-- 6. Create friends/contacts table (simplified - no friend requests)
+CREATE TABLE user_contacts (
+  contact_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  friend_user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, friend_user_id), -- Prevent duplicate friend entries
+  CHECK (user_id != friend_user_id) -- Prevent self-friending
+);
+
+-- 7. Create expense_participants table (for future use)
 CREATE TABLE expense_participants (
   participant_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expense_id UUID REFERENCES expenses(expense_id) ON DELETE CASCADE,
@@ -55,10 +66,12 @@ CREATE TABLE expense_participants (
   UNIQUE(expense_id, user_id) -- Prevent duplicate participants
 );
 
--- 7. Create indexes for better performance
+-- 8. Create indexes for better performance
 CREATE INDEX idx_group_members_group_id ON group_members(group_id);
 CREATE INDEX idx_group_members_user_id ON group_members(user_id);
 CREATE INDEX idx_expenses_group_id ON expenses(group_id);
 CREATE INDEX idx_expenses_paid_by ON expenses(paid_by);
 CREATE INDEX idx_expense_participants_expense_id ON expense_participants(expense_id);
 CREATE INDEX idx_expense_participants_user_id ON expense_participants(user_id);
+CREATE INDEX idx_user_contacts_user_id ON user_contacts(user_id);
+CREATE INDEX idx_user_contacts_friend_user_id ON user_contacts(friend_user_id);
