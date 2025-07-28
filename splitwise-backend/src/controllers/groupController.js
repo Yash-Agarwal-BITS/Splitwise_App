@@ -9,7 +9,7 @@ exports.createGroup = async (req, res) => {
     // Validate input
     if (!group_name) {
       return res.status(400).json({
-        error: "Group name is required"
+        error: "Group name is required",
       });
     }
 
@@ -19,11 +19,13 @@ exports.createGroup = async (req, res) => {
     // Create group
     const { data: groupData, error: groupError } = await supabase
       .from("groups")
-      .insert([{
-        group_name,
-        description: description || null,
-        created_by: temp_created_by
-      }])
+      .insert([
+        {
+          group_name,
+          description: description || null,
+          created_by: temp_created_by,
+        },
+      ])
       .select("group_id, group_name, description, created_by, created_at");
 
     if (groupError) {
@@ -33,12 +35,12 @@ exports.createGroup = async (req, res) => {
     const group = groupData[0];
 
     // Add creator as the first member
-    const { error: memberError } = await supabase
-      .from("group_members")
-      .insert([{
+    const { error: memberError } = await supabase.from("group_members").insert([
+      {
         group_id: group.group_id,
-        user_id: temp_created_by
-      }]);
+        user_id: temp_created_by,
+      },
+    ]);
 
     if (memberError) {
       // If adding member fails, we should ideally rollback the group creation
@@ -47,7 +49,7 @@ exports.createGroup = async (req, res) => {
 
     res.status(201).json({
       message: "Group created successfully",
-      group: group
+      group: group,
     });
   } catch (error) {
     console.error("Create group error:", error);
@@ -64,7 +66,7 @@ exports.addUserToGroup = async (req, res) => {
     // Validate input
     if (!user_id) {
       return res.status(400).json({
-        error: "User ID is required"
+        error: "User ID is required",
       });
     }
 
@@ -77,7 +79,7 @@ exports.addUserToGroup = async (req, res) => {
 
     if (groupError || !group) {
       return res.status(404).json({
-        error: "Group not found"
+        error: "Group not found",
       });
     }
 
@@ -90,7 +92,7 @@ exports.addUserToGroup = async (req, res) => {
 
     if (userError || !user) {
       return res.status(404).json({
-        error: "User not found"
+        error: "User not found",
       });
     }
 
@@ -104,17 +106,19 @@ exports.addUserToGroup = async (req, res) => {
 
     if (existingMember) {
       return res.status(409).json({
-        error: "User is already a member of this group"
+        error: "User is already a member of this group",
       });
     }
 
     // Add user to group
     const { data: memberData, error: memberError } = await supabase
       .from("group_members")
-      .insert([{
-        group_id,
-        user_id
-      }])
+      .insert([
+        {
+          group_id,
+          user_id,
+        },
+      ])
       .select("group_member_id, group_id, user_id, joined_at");
 
     if (memberError) {
@@ -127,12 +131,12 @@ exports.addUserToGroup = async (req, res) => {
       user: {
         user_id: user.user_id,
         username: user.username,
-        email: user.email
+        email: user.email,
       },
       group: {
         group_id: group.group_id,
-        group_name: group.group_name
-      }
+        group_name: group.group_name,
+      },
     });
   } catch (error) {
     console.error("Add user to group error:", error);
@@ -148,20 +152,23 @@ exports.getGroupDetails = async (req, res) => {
     // Get group information
     const { data: group, error: groupError } = await supabase
       .from("groups")
-      .select("group_id, group_name, description, created_by, created_at, updated_at")
+      .select(
+        "group_id, group_name, description, created_by, created_at, updated_at"
+      )
       .eq("group_id", group_id)
       .single();
 
     if (groupError || !group) {
       return res.status(404).json({
-        error: "Group not found"
+        error: "Group not found",
       });
     }
 
     // Get group members with user details
     const { data: membersData, error: membersError } = await supabase
       .from("group_members")
-      .select(`
+      .select(
+        `
         group_member_id,
         group_id,
         user_id,
@@ -171,7 +178,8 @@ exports.getGroupDetails = async (req, res) => {
           username,
           email
         )
-      `)
+      `
+      )
       .eq("group_id", group_id)
       .order("joined_at", { ascending: true });
 
@@ -180,13 +188,13 @@ exports.getGroupDetails = async (req, res) => {
     }
 
     // Format members data
-    const members = membersData.map(member => ({
+    const members = membersData.map((member) => ({
       group_member_id: member.group_member_id,
       group_id: member.group_id,
       user_id: member.user_id,
       joined_at: member.joined_at,
       username: member.users.username,
-      email: member.users.email
+      email: member.users.email,
     }));
 
     // Get creator details
@@ -200,10 +208,10 @@ exports.getGroupDetails = async (req, res) => {
       message: "Group details retrieved successfully",
       group: {
         ...group,
-        creator: creator || null
+        creator: creator || null,
       },
       members: members,
-      member_count: members.length
+      member_count: members.length,
     });
   } catch (error) {
     console.error("Get group details error:", error);
@@ -219,7 +227,8 @@ exports.getUserGroups = async (req, res) => {
     // Get groups where user is a member
     const { data: userGroups, error: groupsError } = await supabase
       .from("group_members")
-      .select(`
+      .select(
+        `
         group_member_id,
         joined_at,
         groups (
@@ -229,7 +238,8 @@ exports.getUserGroups = async (req, res) => {
           created_by,
           created_at
         )
-      `)
+      `
+      )
       .eq("user_id", user_id)
       .order("joined_at", { ascending: false });
 
@@ -238,20 +248,20 @@ exports.getUserGroups = async (req, res) => {
     }
 
     // Format response
-    const groups = userGroups.map(membership => ({
+    const groups = userGroups.map((membership) => ({
       group_id: membership.groups.group_id,
       group_name: membership.groups.group_name,
       description: membership.groups.description,
       created_by: membership.groups.created_by,
       created_at: membership.groups.created_at,
       joined_at: membership.joined_at,
-      is_creator: membership.groups.created_by === user_id
+      is_creator: membership.groups.created_by === user_id,
     }));
 
     res.status(200).json({
       message: "User groups retrieved successfully",
       groups: groups,
-      count: groups.length
+      count: groups.length,
     });
   } catch (error) {
     console.error("Get user groups error:", error);
@@ -273,7 +283,7 @@ exports.removeUserFromGroup = async (req, res) => {
 
     if (groupError || !group) {
       return res.status(404).json({
-        error: "Group not found"
+        error: "Group not found",
       });
     }
 
@@ -286,14 +296,14 @@ exports.removeUserFromGroup = async (req, res) => {
 
     if (userError || !user) {
       return res.status(404).json({
-        error: "User not found"
+        error: "User not found",
       });
     }
 
     // Don't allow removing the group creator
     if (group.created_by === user_id) {
       return res.status(400).json({
-        error: "Cannot remove group creator. Delete the group instead."
+        error: "Cannot remove group creator. Delete the group instead.",
       });
     }
 
@@ -307,7 +317,7 @@ exports.removeUserFromGroup = async (req, res) => {
 
     if (membershipError || !membership) {
       return res.status(404).json({
-        error: "User is not a member of this group"
+        error: "User is not a member of this group",
       });
     }
 
@@ -326,15 +336,72 @@ exports.removeUserFromGroup = async (req, res) => {
       message: "User removed from group successfully",
       removed_user: {
         user_id: user.user_id,
-        username: user.username
+        username: user.username,
       },
       group: {
         group_id: group.group_id,
-        group_name: group.group_name
-      }
+        group_name: group.group_name,
+      },
     });
   } catch (error) {
     console.error("Remove user from group error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Update group details
+exports.updateGroup = async (req, res) => {
+  try {
+    const { group_id } = req.params;
+    const { group_name, description } = req.body;
+    const updateData = {};
+    if (group_name) updateData.group_name = group_name;
+    if (description !== undefined) updateData.description = description;
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: "No data provided for update" });
+    }
+    updateData.updated_at = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("groups")
+      .update(updateData)
+      .eq("group_id", group_id)
+      .select(
+        "group_id, group_name, description, created_by, created_at, updated_at"
+      );
+    if (error || !data || data.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Group not found or update failed" });
+    }
+    res
+      .status(200)
+      .json({ message: "Group updated successfully", group: data[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Delete group entirely
+exports.deleteGroup = async (req, res) => {
+  try {
+    const { group_id } = req.params;
+    // Optionally, delete group_members and expenses related to this group as well
+    // Delete group_members
+    await supabase.from("group_members").delete().eq("group_id", group_id);
+    // Delete expenses
+    await supabase.from("expenses").delete().eq("group_id", group_id);
+    // Delete the group itself
+    const { error } = await supabase
+      .from("groups")
+      .delete()
+      .eq("group_id", group_id);
+    if (error) {
+      return res
+        .status(404)
+        .json({ error: "Group not found or delete failed" });
+    }
+    res.status(200).json({ message: "Group deleted successfully" });
+  } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -1,0 +1,342 @@
+{
+  "info": {
+    "_postman_id": "splitwise-api-collection",
+    "name": "Splitwise API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ""]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ":user_id"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"updateduser\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ":user_id"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ":user_id"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Group",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_name\": \"Trip\",\n  \"description\": \"Goa trip\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/groups/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", ""]
+            }
+          }
+        },
+        {
+          "name": "Get All Groups for User",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups/user/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", "user", ":user_id"]
+            }
+          }
+        },
+        {
+          "name": "Add User to Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"<user_id>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/groups/:group_id/members",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", ":group_id", "members"]
+            }
+          }
+        },
+        {
+          "name": "Remove User from Group",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups/:group_id/members/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", ":group_id", "members", ":user_id"]
+            }
+          }
+        },
+        {
+          "name": "Get Group Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups/:group_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", ":group_id"]
+            }
+          }
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_name\": \"New Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/groups/:group_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", ":group_id"]
+            }
+          }
+        },
+        {
+          "name": "Delete Group",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups/:group_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", ":group_id"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Expense",
+      "item": [
+        {
+          "name": "Create Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_id\": \"<group_id>\",\n  \"amount\": 100,\n  \"description\": \"Dinner\",\n  \"expense_type\": \"group\",\n  \"participants\": [{\"user_id\": \"<user_id>\", \"share\": 100}]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/expenses/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", ""]
+            }
+          }
+        },
+        {
+          "name": "Get User Expenses",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/expenses/user/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", "user", ":user_id"]
+            }
+          }
+        },
+        {
+          "name": "Get Group Expenses",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/expenses/group/:group_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", "group", ":group_id"]
+            }
+          }
+        },
+        {
+          "name": "Get Expense Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/expenses/:expense_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", ":expense_id"]
+            }
+          }
+        },
+        {
+          "name": "Update Expense",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 200,\n  \"description\": \"Updated expense\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/expenses/:expense_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", ":expense_id"]
+            }
+          }
+        },
+        {
+          "name": "Delete Expense",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/expenses/:expense_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", ":expense_id"]
+            }
+          }
+        },
+        {
+          "name": "Get Balances",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/expenses/balances/:user_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "expenses", "balances", ":user_id"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "jwt_token", "value": "" }
+  ]
+}
