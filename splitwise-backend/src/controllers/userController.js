@@ -31,14 +31,33 @@ exports.registerUser = async (req, res) => {
     // Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
+    console.log("🔧 Attempting to create user with Supabase...");
+    console.log("📝 User data:", {
+      username,
+      email,
+      hasPassword: !!password_hash,
+    });
+
     // Create user
     const { data, error } = await supabase
       .from("users")
       .insert([{ username, email, password_hash }])
       .select("user_id, username, email, created_at");
 
+    console.log("📊 Supabase response:", { data, error });
+
     if (error) {
-      return res.status(400).json({ error: error.message });
+      console.error("❌ Supabase error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return res.status(400).json({
+        error: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
     }
 
     res.status(201).json({

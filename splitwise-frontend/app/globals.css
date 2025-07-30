@@ -1,0 +1,63 @@
+body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.btn-custom {
+  border-radius: 25px;
+  padding: 12px 30px;
+  font-weight: 600;
+}
+
+.form-control {
+  border-radius: 10px;
+  border: 2px solid #e9ecef;
+  padding: 12px 15px;
+}
+
+.form-control:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.logo {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.input-group-text {
+  border-radius: 10px 0 0 10px;
+  border: 2px solid #e9ecef;
+  border-right: none;
+  background-color: #f8f9fa;
+}
+
+.input-group .form-control {
+  border-radius: 0 10px 10px 0;
+  border-left: none;
+}
+
+.password-strength {
+  height: 5px;
+  border-radius: 3px;
+  transition: all 0.3s;
+}
+
+.strength-weak {
+  background-color: #dc3545;
+}
+
+.strength-medium {
+  background-color: #ffc107;
+}
+
+.strength-strong {
+  background-color: #28a745;
+}
