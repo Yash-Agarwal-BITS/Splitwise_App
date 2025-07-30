@@ -15,9 +15,11 @@ router.post("/add", authenticateToken, addFriend);
 router.delete("/remove/:friend_user_id", authenticateToken, removeFriend);
 
 // Get user's friends list
-router.get("/friends/:user_id?", authenticateToken, getFriendsList);
+router.get("/friends/:user_id", authenticateToken, getFriendsList);
+router.get("/friends", authenticateToken, getFriendsList);
 
 // Get unified contact list (friends + all group members) - Main contact list
-router.get("/all/:user_id?", authenticateToken, getUnifiedContactList);
+router.get("/all/:user_id", authenticateToken, getUnifiedContactList);
+router.get("/all", authenticateToken, getUnifiedContactList);
 
 module.exports = router;

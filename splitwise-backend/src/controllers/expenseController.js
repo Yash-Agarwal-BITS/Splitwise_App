@@ -11,7 +11,14 @@ exports.createExpense = async (req, res) => {
       participants, // Array of {user_id, share}
     } = req.body;
 
-    const paid_by = req.user?.user_id || "temp-user-id"; // Will be replaced with actual auth
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
+    const paid_by = req.user.user_id;
 
     // Validate input
     if (!amount || amount <= 0) {
@@ -142,7 +149,14 @@ exports.createExpense = async (req, res) => {
 // Get expenses for a user (both personal and group)
 exports.getUserExpenses = async (req, res) => {
   try {
-    const user_id = req.user?.user_id || req.params.user_id || "temp-user-id";
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
+    const user_id = req.user.user_id;
     const { expense_type, group_id } = req.query;
 
     let query = supabase.from("expenses").select(`
@@ -244,7 +258,15 @@ exports.getUserExpenses = async (req, res) => {
 // Get expenses for a specific group
 exports.getGroupExpenses = async (req, res) => {
   try {
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
     const { group_id } = req.params;
+    const user_id = req.user.user_id;
 
     // Check if group exists
     const { data: group, error: groupError } = await supabase
@@ -256,6 +278,20 @@ exports.getGroupExpenses = async (req, res) => {
     if (groupError || !group) {
       return res.status(404).json({
         error: "Group not found",
+      });
+    }
+
+    // Check if user is a member of this group
+    const { data: membership, error: memberError } = await supabase
+      .from("group_members")
+      .select("group_member_id")
+      .eq("group_id", group_id)
+      .eq("user_id", user_id)
+      .single();
+
+    if (memberError || !membership) {
+      return res.status(403).json({
+        error: "You must be a group member to view group expenses",
       });
     }
 
@@ -327,7 +363,15 @@ exports.getGroupExpenses = async (req, res) => {
 // Get expense details by ID
 exports.getExpenseDetails = async (req, res) => {
   try {
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
     const { expense_id } = req.params;
+    const user_id = req.user.user_id;
 
     // Get expense details
     const { data: expense, error: expenseError } = await supabase
@@ -359,6 +403,27 @@ exports.getExpenseDetails = async (req, res) => {
     if (expenseError || !expense) {
       return res.status(404).json({
         error: "Expense not found",
+      });
+    }
+
+    // Check if user has access to this expense (either paid by them or they're a participant)
+    let hasAccess = expense.paid_by === user_id;
+
+    if (!hasAccess) {
+      // Check if user is a participant
+      const { data: participation, error: participationError } = await supabase
+        .from("expense_participants")
+        .select("participant_id")
+        .eq("expense_id", expense_id)
+        .eq("user_id", user_id)
+        .single();
+
+      hasAccess = !participationError && participation;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: "You don't have access to this expense",
       });
     }
 
@@ -399,7 +464,14 @@ exports.getExpenseDetails = async (req, res) => {
 // Calculate balances for a user
 exports.calculateUserBalances = async (req, res) => {
   try {
-    const user_id = req.user?.user_id || req.params.user_id || "temp-user-id";
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
+    const user_id = req.user.user_id;
     const { balance_type, group_id } = req.query;
 
     let balances = [];
@@ -488,8 +560,34 @@ exports.calculateUserBalances = async (req, res) => {
 // Update an expense
 exports.updateExpense = async (req, res) => {
   try {
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
     const { expense_id } = req.params;
     const { amount, description } = req.body;
+    const user_id = req.user.user_id;
+
+    // First, check if the expense exists and user owns it
+    const { data: existingExpense, error: fetchError } = await supabase
+      .from("expenses")
+      .select("expense_id, paid_by")
+      .eq("expense_id", expense_id)
+      .single();
+
+    if (fetchError || !existingExpense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    if (existingExpense.paid_by !== user_id) {
+      return res.status(403).json({ 
+        error: "You can only update expenses you created" 
+      });
+    }
+
     const updateData = {};
     if (amount !== undefined) updateData.amount = amount;
     if (description !== undefined) updateData.description = description;
@@ -520,21 +618,50 @@ exports.updateExpense = async (req, res) => {
 // Delete an expense
 exports.deleteExpense = async (req, res) => {
   try {
+    // Ensure user is authenticated
+    if (!req.user?.user_id) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
     const { expense_id } = req.params;
-    // Optionally, delete expense_participants related to this expense as well
+    const user_id = req.user.user_id;
+
+    // First, check if the expense exists and user owns it
+    const { data: existingExpense, error: fetchError } = await supabase
+      .from("expenses")
+      .select("expense_id, paid_by")
+      .eq("expense_id", expense_id)
+      .single();
+
+    if (fetchError || !existingExpense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    if (existingExpense.paid_by !== user_id) {
+      return res.status(403).json({ 
+        error: "You can only delete expenses you created" 
+      });
+    }
+
+    // Delete expense_participants related to this expense first
     await supabase
       .from("expense_participants")
       .delete()
       .eq("expense_id", expense_id);
+    
     const { error } = await supabase
       .from("expenses")
       .delete()
       .eq("expense_id", expense_id);
+    
     if (error) {
       return res
         .status(404)
         .json({ error: "Expense not found or delete failed" });
     }
+    
     res.status(200).json({ message: "Expense deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
