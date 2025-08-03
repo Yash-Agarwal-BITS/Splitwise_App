@@ -20,6 +20,9 @@ router.post("/", createGroup);
 // Get all groups for a user
 router.get("/user/:user_id", getUserGroups);
 
+// Get group details with members (move this before specific group operations)
+router.get("/:group_id", getGroupDetails);
+
 // Add user to group
 router.post("/:group_id/members", addUserToGroup);
 
@@ -31,8 +34,5 @@ router.put("/:group_id", updateGroup);
 
 // Delete group entirely
 router.delete("/:group_id", deleteGroup);
-
-// Get group details with members
-router.get("/:group_id", getGroupDetails);
 
 module.exports = router;

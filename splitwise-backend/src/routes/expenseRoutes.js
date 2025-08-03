@@ -5,6 +5,7 @@ const {
   createExpense,
   getUserExpenses,
   getGroupExpenses,
+  getFriendExpenses,
   getExpenseDetails,
   calculateUserBalances,
   updateExpense,
@@ -25,6 +26,9 @@ router.get("/balances", calculateUserBalances);
 
 // Get expenses for a specific group
 router.get("/group/:group_id", getGroupExpenses);
+
+// Get expenses between friends
+router.get("/friend/:friend_id", getFriendExpenses);
 
 // Get expense details by ID
 router.get("/:expense_id", getExpenseDetails);

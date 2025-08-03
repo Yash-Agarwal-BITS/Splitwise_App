@@ -8,6 +8,7 @@ const {
   getUserById,
   updateUser,
   deleteUser,
+  getMyProfile,
 } = require("../controllers/userController");
 
 // User registration
@@ -18,6 +19,9 @@ router.post("/login", loginUser);
 
 // Protect all routes below this line
 router.use(authenticateToken);
+
+// Get current user's profile
+router.get("/me", getMyProfile);
 
 // Get all users
 router.get("/", getAllUsers);

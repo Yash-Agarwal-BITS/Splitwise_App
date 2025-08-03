@@ -4,22 +4,27 @@ const authenticateToken = require("../middleware/auth");
 const { 
   addFriend,
   removeFriend,
-  getFriendsList,
-  getUnifiedContactList
+  getFriends,
+  searchUsers,
+  getFriendDetails
 } = require("../controllers/contactController");
 
+// Protect all contact routes
+router.use(authenticateToken);
+
 // Add friend directly by email (no requests needed)
-router.post("/add", authenticateToken, addFriend);
+router.post("/add", addFriend);
 
 // Remove friend
-router.delete("/remove/:friend_user_id", authenticateToken, removeFriend);
+router.delete("/remove/:friend_user_id", removeFriend);
 
 // Get user's friends list
-router.get("/friends/:user_id", authenticateToken, getFriendsList);
-router.get("/friends", authenticateToken, getFriendsList);
+router.get("/friends", getFriends);
 
-// Get unified contact list (friends + all group members) - Main contact list
-router.get("/all/:user_id", authenticateToken, getUnifiedContactList);
-router.get("/all", authenticateToken, getUnifiedContactList);
+// Search for users to add as friends
+router.get("/search", searchUsers);
+
+// Get friend details
+router.get("/friend/:friend_user_id", getFriendDetails);
 
 module.exports = router;
