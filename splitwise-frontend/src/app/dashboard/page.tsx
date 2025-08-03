@@ -10,7 +10,7 @@ interface User {
 }
 
 interface Friend {
-  id: number
+  id: string
   name: string
   balance: number
   email: string
@@ -21,7 +21,7 @@ interface Group {
   name: string
   memberCount: number
   balance: number
-  createdBy: number
+  createdBy: string
   isCreator: boolean
 }
 
@@ -47,12 +47,14 @@ export default function Dashboard() {
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [showAddMemberModal, setShowAddMemberModal] = useState(false)
-  const [selectedGroupId, setSelectedGroupId] = useState<number | string | null>(null)
-  const [selectedFriendId, setSelectedFriendId] = useState<number | null>(null)
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
   const [showFriendDropdown, setShowFriendDropdown] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<{type: 'friend' | 'group', id: number | string, name: string} | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{type: 'friend' | 'group', id: string, name: string} | null>(null)
   const [showExpenseModal, setShowExpenseModal] = useState(false)
+  const [recentExpenses, setRecentExpenses] = useState<any[]>([])
+  const [loadingExpenses, setLoadingExpenses] = useState(false)
 
   useEffect(() => {
     // Check if user is logged in
@@ -93,6 +95,12 @@ export default function Dashboard() {
         
         // Load real groups from API
         await loadGroups(token, parsedUserData.user_id || parsedUserData.id)
+        
+        // Load recent personal expenses
+        await loadRecentExpenses(token)
+        
+        // Load user balances
+        await loadUserBalances(token)
       } else {
         // If no user data found, redirect to login
         router.push('/auth/login')
@@ -123,6 +131,9 @@ export default function Dashboard() {
         console.log('Friends data structure:', friendsData.map((f: any) => ({ id: f.id, type: typeof f.id, name: f.name })))
         console.log('Mapped friends data:', friendsData) // Debug log
         setFriends(friendsData)
+        
+        // Load balances for each friend
+        await loadFriendBalances(token, friendsData)
       } else {
         console.error('Failed to load friends:', await response.text())
         setFriends([])
@@ -133,7 +144,7 @@ export default function Dashboard() {
     }
   }
 
-  const loadGroups = async (token: string, userId: number) => {
+  const loadGroups = async (token: string, userId: string) => {
     try {
       const response = await fetch(`http://localhost:5000/api/groups/user/${userId}`, {
         headers: {
@@ -356,13 +367,105 @@ export default function Dashboard() {
     }
   }
 
-  const handleItemClick = (type: 'friend' | 'group', id: number | string) => {
+  const handleItemClick = (type: 'friend' | 'group', id: string) => {
     console.log('handleItemClick called with:', { type, id, idType: typeof id }) // Debug log
     if (type === 'friend') {
       router.push(`/friends/${id}`)
     } else {
       console.log('Navigating to group:', id) // Debug log
       router.push(`/groups/${id}`)
+    }
+  }
+
+  const loadRecentExpenses = async (token: string) => {
+    try {
+      setLoadingExpenses(true)
+      const response = await fetch('http://localhost:5000/api/expenses/all?expense_type=personal&limit=5', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setRecentExpenses(result.expenses || [])
+      } else {
+        console.error('Failed to load recent expenses:', await response.text())
+        setRecentExpenses([])
+      }
+    } catch (error) {
+      console.error('Error loading recent expenses:', error)
+      setRecentExpenses([])
+    } finally {
+      setLoadingExpenses(false)
+    }
+  }
+
+  const loadUserBalances = async (token: string) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/expenses/balances?balance_type=personal', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const personalBalances = result.balances.find((b: any) => b.type === 'personal')
+        
+        if (personalBalances) {
+          const totalOwed = personalBalances.balances.reduce((sum: number, b: any) => sum + Math.max(0, b.net_balance), 0)
+          const totalOwe = personalBalances.balances.reduce((sum: number, b: any) => sum + Math.max(0, -b.net_balance), 0)
+          
+          setBalances({
+            total: totalOwed - totalOwe,
+            youOwe: totalOwe,
+            youAreOwed: totalOwed
+          })
+        } else {
+          // No personal balances found, set to 0
+          setBalances({
+            total: 0,
+            youOwe: 0,
+            youAreOwed: 0
+          })
+        }
+      } else {
+        console.error('Failed to load balances:', await response.text())
+      }
+    } catch (error) {
+      console.error('Error loading balances:', error)
+    }
+  }
+
+  const loadFriendBalances = async (token: string, friendsData: Friend[]) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/expenses/balances?balance_type=personal', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const personalBalances = result.balances.find((b: any) => b.type === 'personal')
+        
+        if (personalBalances) {
+          // Update friends with their balances
+          const updatedFriends = friendsData.map(friend => {
+            const friendBalance = personalBalances.balances.find((b: any) => b.user_id === friend.id)
+            return {
+              ...friend,
+              balance: friendBalance ? friendBalance.net_balance : 0
+            }
+          })
+          setFriends(updatedFriends)
+        }
+      } else {
+        console.error('Failed to load friend balances:', await response.text())
+      }
+    } catch (error) {
+      console.error('Error loading friend balances:', error)
     }
   }
 
@@ -487,7 +590,18 @@ export default function Dashboard() {
                               {friend.name.charAt(0)}
                             </span>
                           </div>
-                          <span className="ml-3 text-gray-200">{friend.name}</span>
+                          <div className="ml-3 flex-1">
+                            <span className="text-gray-200">{friend.name}</span>
+                            <div className={`text-xs font-medium ${
+                              friend.balance > 0 ? 'text-green-400' : 
+                              friend.balance < 0 ? 'text-red-400' : 
+                              'text-gray-400'
+                            }`}>
+                              {friend.balance > 0 ? `+$${friend.balance.toFixed(2)}` : 
+                               friend.balance < 0 ? `-$${Math.abs(friend.balance).toFixed(2)}` : 
+                               '$0.00'}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <button
@@ -598,13 +712,50 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="p-6">
-                <div className="text-center text-gray-400 py-8">
-                  <svg className="mx-auto h-12 w-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-200">No expenses yet</h3>
-                  <p className="mt-1 text-sm text-gray-400">Get started by adding your first expense.</p>
-                </div>
+                {loadingExpenses ? (
+                  <div className="text-center text-gray-400 py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400 mx-auto"></div>
+                    <p className="mt-2 text-sm text-gray-400">Loading expenses...</p>
+                  </div>
+                ) : recentExpenses.length === 0 ? (
+                  <div className="text-center text-gray-400 py-8">
+                    <svg className="mx-auto h-12 w-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-200">No expenses yet</h3>
+                    <p className="mt-1 text-sm text-gray-400">Get started by adding your first expense.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                                 {recentExpenses.map((expense) => (
+               <div 
+                 key={expense.expense_id} 
+                 className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-650 cursor-pointer transition-colors duration-200"
+                 onClick={() => router.push(`/expenses/${expense.expense_id}`)}
+               >
+                 <div className="flex items-center space-x-3">
+                   <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">
+                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                     </svg>
+                   </div>
+                   <div>
+                     <h4 className="text-white font-medium">{expense.description || 'No description'}</h4>
+                     <p className="text-sm text-gray-400">
+                       {expense.users?.username || 'Unknown'} paid • {new Date(expense.created_at).toLocaleDateString()}
+                     </p>
+                   </div>
+                 </div>
+                 <div className="text-right">
+                   <p className="text-lg font-semibold text-emerald-400">${expense.amount.toFixed(2)}</p>
+                   <p className="text-xs text-gray-400">
+                     {expense.participants?.length || 0} participants
+                   </p>
+                 </div>
+               </div>
+             ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

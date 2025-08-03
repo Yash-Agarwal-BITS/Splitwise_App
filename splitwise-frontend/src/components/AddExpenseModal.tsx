@@ -51,16 +51,34 @@ export default function AddExpenseModal({
       setDescription('')
       setAmount('')
       setPaidBy(currentUserId)
-      setSelectedParticipants([currentUserId])
+      
+      // For personal expenses, automatically include the friend if there's only one
+      const initialParticipants = expenseType === 'personal' && friends.length === 1 
+        ? [currentUserId, friends[0].id]
+        : [currentUserId]
+      
+      setSelectedParticipants(initialParticipants)
       setSplitType('equal')
       setShowParticipantDropdown(false)
-      setParticipants([{
-        user_id: currentUserId,
-        name: currentUserName,
-        share: 0
-      }])
+      
+      const initialParticipantsList = initialParticipants.map(userId => {
+        let participantName = 'Unknown'
+        if (userId == currentUserId) {
+          participantName = currentUserName
+        } else {
+          const friend = friends.find(f => f.id == userId)
+          participantName = friend?.name || 'Unknown'
+        }
+        
+        return {
+          user_id: userId,
+          name: participantName,
+          share: 0
+        }
+      })
+      setParticipants(initialParticipantsList)
     }
-  }, [isOpen, currentUserId, currentUserName])
+  }, [isOpen, currentUserId, currentUserName, friends, expenseType])
 
   // Update participants when selection changes
   useEffect(() => {

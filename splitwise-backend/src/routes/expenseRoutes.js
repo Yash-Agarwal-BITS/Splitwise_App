@@ -30,7 +30,7 @@ router.get("/group/:group_id", getGroupExpenses);
 // Get expenses between friends
 router.get("/friend/:friend_id", getFriendExpenses);
 
-// Get expense details by ID
+// Get expense details by ID (must be last to avoid catching other routes)
 router.get("/:expense_id", getExpenseDetails);
 
 // Update an expense

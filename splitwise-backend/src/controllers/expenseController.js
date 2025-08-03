@@ -141,7 +141,7 @@ exports.getUserExpenses = async (req, res) => {
     }
 
     const user_id = req.user.user_id;
-    const { expense_type, group_id } = req.query;
+    const { expense_type, group_id, limit } = req.query;
 
     let query = supabase.from("expenses").select(`
         expense_id,
@@ -173,7 +173,17 @@ exports.getUserExpenses = async (req, res) => {
     }
 
     // Only get expenses where user is either the payer or a participant
-    const { data: allExpenses, error: expenseError } = await query.order("created_at", { ascending: false });
+    let finalQuery = query.order("created_at", { ascending: false });
+    
+    // Apply limit if specified
+    if (limit) {
+      const limitNum = parseInt(limit);
+      if (!isNaN(limitNum) && limitNum > 0) {
+        finalQuery = finalQuery.limit(limitNum);
+      }
+    }
+    
+    const { data: allExpenses, error: expenseError } = await finalQuery;
 
     if (expenseError) {
       return errorResponse(res, 400, expenseError.message);
@@ -332,17 +342,34 @@ exports.getFriendExpenses = async (req, res) => {
 
     const { friend_id } = req.params;
     const user_id = req.user.user_id;
+    
+    console.log('getFriendExpenses called with:', { friend_id, user_id });
+    console.log('Type of friend_id:', typeof friend_id, 'Type of user_id:', typeof user_id);
 
-    // Check if friendship exists
-    const { data: friendship, error: friendError } = await supabase
-      .from("contacts")
+    // Check if friendship exists (either direction)
+    const { data: friendship1, error: friendError1 } = await supabase
+      .from("user_contacts")
       .select("contact_id")
-      .or(`and(user_id.eq.${user_id},friend_id.eq.${friend_id}),and(user_id.eq.${friend_id},friend_id.eq.${user_id})`)
+      .eq("user_id", user_id)
+      .eq("friend_user_id", friend_id)
       .single();
 
+    const { data: friendship2, error: friendError2 } = await supabase
+      .from("user_contacts")
+      .select("contact_id")
+      .eq("user_id", friend_id)
+      .eq("friend_user_id", user_id)
+      .single();
+
+    const friendship = friendship1 || friendship2;
+    const friendError = friendError1 && friendError2;
+
     if (friendError || !friendship) {
+      console.log('Friendship check failed:', { friendError1, friendError2, friendship1, friendship2 });
       return errorResponse(res, 404, "Friendship not found");
     }
+    
+    console.log('Friendship found:', friendship);
 
     // Get expenses between these two users (personal expenses only)
     const { data: expenses, error: expenseError } = await supabase
@@ -363,12 +390,21 @@ exports.getFriendExpenses = async (req, res) => {
       .eq("expense_type", "personal")
       .order("created_at", { ascending: false });
 
+    console.log('Personal expenses found:', expenses?.length || 0);
+    if (expenses) {
+      expenses.forEach(exp => {
+        console.log('Expense:', exp.expense_id, exp.description, 'paid by:', exp.paid_by);
+      });
+    }
+
     if (expenseError) {
       return errorResponse(res, 400, expenseError.message);
     }
 
     // Filter expenses that involve both users
     const friendExpenses = [];
+    
+    console.log('Total personal expenses found:', expenses.length);
     
     for (const expense of expenses) {
       const { data: participants, error: partError } = await supabase
@@ -390,7 +426,12 @@ exports.getFriendExpenses = async (req, res) => {
       const participantIds = participants.map(p => p.user_id);
       
       // Check if both users are participants in this expense
-      if (participantIds.includes(user_id) && participantIds.includes(parseInt(friend_id))) {
+      console.log('Checking expense:', expense.expense_id, 'participants:', participantIds);
+      console.log('Looking for user_id:', user_id, 'friend_id:', friend_id);
+      console.log('user_id in participants:', participantIds.includes(user_id));
+      console.log('friend_id in participants:', participantIds.includes(friend_id));
+      if (participantIds.includes(user_id) && participantIds.includes(friend_id)) {
+        console.log('Found matching expense:', expense.expense_id);
         friendExpenses.push({
           ...expense,
           participants: participants,
@@ -398,6 +439,9 @@ exports.getFriendExpenses = async (req, res) => {
       }
     }
 
+    console.log('Final result - friendExpenses count:', friendExpenses.length);
+    console.log('Final result - friendExpenses:', friendExpenses);
+    
     res.status(200).json({
       message: "Friend expenses retrieved successfully",
       expenses: friendExpenses,
