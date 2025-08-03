@@ -19,6 +19,8 @@ interface Group {
   name: string
   memberCount: number
   balance: number
+  createdBy: number
+  isCreator: boolean
 }
 
 interface Balances {
@@ -137,7 +139,9 @@ export default function Dashboard() {
           id: group.group_id,
           name: group.group_name,
           memberCount: group.member_count || 1,
-          balance: 0 // TODO: Calculate actual balance from expenses
+          balance: 0, // TODO: Calculate actual balance from expenses
+          createdBy: group.created_by, // Include creator information
+          isCreator: group.created_by === userId // Check if current user is creator
         }))
         console.log('Mapped groups data:', groupsData) // Debug log
         setGroups(groupsData)
@@ -426,26 +430,18 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => {
-                              setSelectedGroupId(group.id)
-                              setShowAddMemberModal(true)
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1 rounded"
-                            title="Add Member"
-                          >
-                            + Add
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeleteTarget({ type: 'group', id: group.id, name: group.name })
-                              setShowDeleteModal(true)
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded"
-                            title="Delete Group"
-                          >
-                            Delete
-                          </button>
+                          {group.isCreator && (
+                            <button
+                              onClick={() => {
+                                setDeleteTarget({ type: 'group', id: group.id, name: group.name })
+                                setShowDeleteModal(true)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded"
+                              title="Delete Group"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

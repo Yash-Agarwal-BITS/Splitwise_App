@@ -42,6 +42,12 @@ interface Expense {
   }[]
 }
 
+interface Friend {
+  id: number
+  name: string
+  email: string
+}
+
 export default function GroupPage() {
   const params = useParams()
   const router = useRouter()
@@ -50,13 +56,40 @@ export default function GroupPage() {
   const [group, setGroup] = useState<GroupDetails | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [selectedFriendId, setSelectedFriendId] = useState<number | null>(null)
+  const [showFriendDropdown, setShowFriendDropdown] = useState(false)
+  const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null)
 
   useEffect(() => {
-    loadGroupDetails()
-    loadGroupExpenses()
+    const loadData = async () => {
+      // Get current user ID
+      const userDataString = localStorage.getItem('user')
+      if (userDataString) {
+        const userData = JSON.parse(userDataString)
+        const userId = userData.user_id || userData.id
+        console.log('Setting currentUserId to:', userId, 'Type:', typeof userId)
+        setCurrentUserId(userId)
+      }
+      
+      await loadGroupDetails()
+      await loadGroupExpenses()
+    }
+    loadData()
   }, [groupId])
+
+  useEffect(() => {
+    if (members.length > 0) {
+      console.log('Members loaded:', members)
+      console.log('Current user ID:', currentUserId)
+      loadFriends()
+    }
+  }, [members])
 
   const loadGroupDetails = async () => {
     try {
@@ -146,6 +179,163 @@ export default function GroupPage() {
     return `$${amount.toFixed(2)}`
   }
 
+  const loadFriends = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch('http://localhost:5000/api/contacts/friends', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const friendsData = result.friends.map((friend: any) => ({
+          id: friend.user_id,
+          name: friend.username || friend.email?.split('@')[0] || 'Unknown',
+          email: friend.email
+        }))
+        
+        // Filter out friends who are already members of this group
+        const memberUserIds = members.map(member => parseInt(member.user_id))
+        const availableFriends = friendsData.filter((friend: Friend) => 
+          !memberUserIds.includes(friend.id)
+        )
+        setFriends(availableFriends)
+      } else {
+        console.error('Failed to load friends')
+      }
+    } catch (error) {
+      console.error('Error loading friends:', error)
+    }
+  }
+
+  const handleAddMember = async () => {
+    if (!selectedFriendId) {
+      alert('Please select a friend to add')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      
+      const addResponse = await fetch(`http://localhost:5000/api/groups/${groupId}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ user_id: selectedFriendId })
+      })
+
+      if (addResponse.ok) {
+        // Reload group details to get updated member list
+        await loadGroupDetails()
+        await loadFriends() // Refresh available friends list
+        setSelectedFriendId(null)
+        setShowAddMemberModal(false)
+        alert('Member added successfully!')
+      } else {
+        const error = await addResponse.json()
+        let errorMessage = 'Failed to add member'
+        
+        if (addResponse.status === 403) {
+          errorMessage = 'You must be a group member to add users to this group'
+        } else if (addResponse.status === 409) {
+          errorMessage = 'This user is already a member of the group'
+        } else if (error.error || error.message) {
+          errorMessage = error.error || error.message
+        }
+        
+        alert(errorMessage)
+      }
+    } catch (error) {
+      console.error('Error adding member:', error)
+      alert('Failed to add member. Please check your connection and try again.')
+    }
+  }
+
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return
+
+    try {
+      const token = localStorage.getItem('token')
+      
+      const removeResponse = await fetch(`http://localhost:5000/api/groups/${groupId}/members/${memberToRemove.user_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (removeResponse.ok) {
+        // Reload group details to get updated member list
+        await loadGroupDetails()
+        await loadFriends() // Refresh available friends list
+        setMemberToRemove(null)
+        setShowRemoveMemberModal(false)
+        alert('Member removed successfully!')
+      } else {
+        const error = await removeResponse.json()
+        alert(error.error || error.message || 'Failed to remove member')
+      }
+    } catch (error) {
+      console.error('Error removing member:', error)
+      alert('Failed to remove member. Please try again.')
+    }
+  }
+
+  const isCurrentUserCreator = () => {
+    const isCreator = members.some(member => 
+      member.user_id === String(currentUserId) && member.is_creator
+    )
+    // Debug logs to understand the issue
+    console.log('isCurrentUserCreator Debug:', {
+      currentUserId,
+      currentUserIdAsString: String(currentUserId),
+      members: members.map(m => ({ 
+        user_id: m.user_id, 
+        is_creator: m.is_creator,
+        matches_current: m.user_id === String(currentUserId)
+      })),
+      isCreator
+    })
+    return isCreator
+  }
+
+  const isCurrentUserMember = () => {
+    return members.some(member => 
+      member.user_id === String(currentUserId)
+    )
+  }
+
+  const handleLeaveGroup = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      
+      const leaveResponse = await fetch(`http://localhost:5000/api/groups/${groupId}/members/${currentUserId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (leaveResponse.ok) {
+        alert('You have left the group successfully!')
+        // Redirect back to dashboard
+        router.push('/dashboard')
+      } else {
+        const error = await leaveResponse.json()
+        alert(error.error || error.message || 'Failed to leave group')
+      }
+    } catch (error) {
+      console.error('Error leaving group:', error)
+      alert('Failed to leave group. Please try again.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -194,6 +384,29 @@ export default function GroupPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {(currentUserId && members.length > 0) && (
+                <button
+                  onClick={() => setShowAddMemberModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Add Member
+                </button>
+              )}
+              {isCurrentUserMember() && !isCurrentUserCreator() && (
+                <button
+                  onClick={() => {
+                    // Handle leave group functionality
+                    if (confirm('Are you sure you want to leave this group?')) {
+                      handleLeaveGroup()
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Leave Group
+                </button>
+              )}
               <button
                 onClick={() => {/* TODO: Add expense functionality */}}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center"
@@ -228,7 +441,10 @@ export default function GroupPage() {
                   <label className="text-sm text-gray-400">Members ({members.length})</label>
                   <div className="mt-2 space-y-2">
                     {members.map((member) => (
-                      <div key={member.user_id} className="flex items-center justify-between">
+                      <div 
+                        key={member.user_id} 
+                        className="flex items-center justify-between group hover:bg-gray-700 p-2 rounded-md transition-colors"
+                      >
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                             <span className="text-sm font-medium text-white">
@@ -240,11 +456,25 @@ export default function GroupPage() {
                             <p className="text-gray-400 text-xs">{member.email}</p>
                           </div>
                         </div>
-                        {member.is_creator && (
-                          <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
-                            Creator
-                          </span>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          {member.is_creator && (
+                            <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
+                              Creator
+                            </span>
+                          )}
+                          {isCurrentUserCreator() && !member.is_creator && (
+                            <button
+                              onClick={() => {
+                                setMemberToRemove(member)
+                                setShowRemoveMemberModal(true)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded"
+                              title="Remove member"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -303,6 +533,152 @@ export default function GroupPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Add Member to Group</h3>
+                <button
+                  onClick={() => {
+                    setShowAddMemberModal(false)
+                    setSelectedFriendId(null)
+                    setShowFriendDropdown(false)
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+              
+              {friends.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-gray-400 mb-4">No friends available to add to this group!</p>
+                  <p className="text-sm text-gray-500">All your friends are already members of this group, or you haven't added any friends yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Select a friend to add:
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowFriendDropdown(!showFriendDropdown)}
+                        className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-gray-100 text-left focus:outline-none focus:ring-blue-500 focus:border-blue-500 flex items-center justify-between"
+                      >
+                        <span>
+                          {selectedFriendId 
+                            ? friends.find(f => f.id === selectedFriendId)?.name || 'Select a friend...'
+                            : 'Select a friend...'
+                          }
+                        </span>
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {showFriendDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {friends.map((friend) => (
+                            <button
+                              key={friend.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedFriendId(friend.id)
+                                setShowFriendDropdown(false)
+                              }}
+                              className="w-full px-3 py-2 text-left text-gray-100 hover:bg-gray-600 focus:bg-gray-600 focus:outline-none"
+                            >
+                              {friend.name} ({friend.email})
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowAddMemberModal(false)
+                    setSelectedFriendId(null)
+                    setShowFriendDropdown(false)
+                  }}
+                  className="px-4 py-2 text-gray-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                {friends.length > 0 && (
+                  <button
+                    onClick={handleAddMember}
+                    disabled={!selectedFriendId}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md"
+                  >
+                    Add Member
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Modal */}
+      {showRemoveMemberModal && memberToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Remove Member</h3>
+                <button
+                  onClick={() => {
+                    setShowRemoveMemberModal(false)
+                    setMemberToRemove(null)
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-300 mb-4">
+                  Are you sure you want to remove <strong>{memberToRemove.username}</strong> from this group?
+                </p>
+                <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+                  <p className="text-yellow-300 text-sm">
+                    ⚠️ This action cannot be undone. The member will lose access to this group and all its expenses.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowRemoveMemberModal(false)
+                    setMemberToRemove(null)
+                  }}
+                  className="px-4 py-2 text-gray-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRemoveMember}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
+                >
+                  Remove Member
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
