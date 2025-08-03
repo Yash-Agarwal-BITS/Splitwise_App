@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import AddExpenseModal from '@/components/AddExpenseModal'
 
 interface User {
   name: string
@@ -12,6 +13,7 @@ interface Friend {
   id: number
   name: string
   balance: number
+  email: string
 }
 
 interface Group {
@@ -32,6 +34,7 @@ interface Balances {
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [userData, setUserData] = useState<any>(null)
   const [balances, setBalances] = useState<Balances>({
     total: 0,
     youOwe: 0,
@@ -49,6 +52,7 @@ export default function Dashboard() {
   const [showFriendDropdown, setShowFriendDropdown] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{type: 'friend' | 'group', id: number | string, name: string} | null>(null)
+  const [showExpenseModal, setShowExpenseModal] = useState(false)
 
   useEffect(() => {
     // Check if user is logged in
@@ -69,10 +73,11 @@ export default function Dashboard() {
       const token = localStorage.getItem('token')
       
       if (userDataString && token) {
-        const userData = JSON.parse(userDataString)
+        const parsedUserData = JSON.parse(userDataString)
+        setUserData(parsedUserData)
         setUser({ 
-          name: userData.username || userData.name || 'User', 
-          email: userData.email 
+          name: parsedUserData.username || parsedUserData.name || 'User', 
+          email: parsedUserData.email 
         })
         
         // TODO: Load real balance data from API
@@ -87,7 +92,7 @@ export default function Dashboard() {
         await loadFriends(token)
         
         // Load real groups from API
-        await loadGroups(token, userData.user_id || userData.id)
+        await loadGroups(token, parsedUserData.user_id || parsedUserData.id)
       } else {
         // If no user data found, redirect to login
         router.push('/auth/login')
@@ -108,11 +113,15 @@ export default function Dashboard() {
 
       if (response.ok) {
         const result = await response.json()
+        console.log('Raw friends data from API:', result.friends) // Debug log
         const friendsData = result.friends.map((friend: any) => ({
           id: friend.user_id,
           name: friend.username || friend.email?.split('@')[0] || 'Unknown',
-          balance: 0 // TODO: Calculate actual balance from expenses
+          balance: 0, // TODO: Calculate actual balance from expenses
+          email: friend.email || ''
         }))
+        console.log('Friends data structure:', friendsData.map((f: any) => ({ id: f.id, type: typeof f.id, name: f.name })))
+        console.log('Mapped friends data:', friendsData) // Debug log
         setFriends(friendsData)
       } else {
         console.error('Failed to load friends:', await response.text())
@@ -219,9 +228,7 @@ export default function Dashboard() {
         const result = await response.json()
         // Refresh the groups list to get proper data from backend
         const token = localStorage.getItem('token')
-        const userDataString = localStorage.getItem('user')
-        if (token && userDataString) {
-          const userData = JSON.parse(userDataString)
+        if (token && userData) {
           await loadGroups(token, userData.user_id || userData.id)
         }
         setNewGroupName('')
@@ -357,6 +364,11 @@ export default function Dashboard() {
       console.log('Navigating to group:', id) // Debug log
       router.push(`/groups/${id}`)
     }
+  }
+
+  const handleExpenseSuccess = () => {
+    // Refresh user data to update balances
+    loadUserData()
   }
 
   if (!user) {
@@ -577,7 +589,10 @@ export default function Dashboard() {
               <div className="px-6 py-4 border-b border-gray-700">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-100">Recent Activity</h2>
-                  <button className="text-emerald-400 hover:text-emerald-300 text-sm font-medium">
+                  <button 
+                    onClick={() => setShowExpenseModal(true)}
+                    className="text-emerald-400 hover:text-emerald-300 text-sm font-medium"
+                  >
                     + Add Expense
                   </button>
                 </div>
@@ -589,14 +604,6 @@ export default function Dashboard() {
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-200">No expenses yet</h3>
                   <p className="mt-1 text-sm text-gray-400">Get started by adding your first expense.</p>
-                  <div className="mt-6">
-                    <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700">
-                      <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      New Expense
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -841,6 +848,18 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Add Expense Modal */}
+      {userData && (
+        <AddExpenseModal
+          isOpen={showExpenseModal}
+          onClose={() => setShowExpenseModal(false)}
+          onSuccess={handleExpenseSuccess}
+          friends={friends}
+          currentUserId={userData.user_id || userData.id || 0}
+          currentUserName={user?.name || 'User'}
+          expenseType="personal"
+        />
+      )}
     </div>
   )
 }
