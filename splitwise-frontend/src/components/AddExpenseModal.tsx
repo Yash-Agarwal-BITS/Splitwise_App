@@ -23,6 +23,7 @@ interface AddExpenseModalProps {
   currentUserId: string | number
   currentUserName: string
   expenseType: 'personal' | 'group'
+  groupId?: string
 }
 
 type SplitType = 'equal' | 'exact' | 'percentage'
@@ -34,7 +35,8 @@ export default function AddExpenseModal({
   friends,
   currentUserId,
   currentUserName,
-  expenseType
+  expenseType,
+  groupId
 }: AddExpenseModalProps) {
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
@@ -53,8 +55,11 @@ export default function AddExpenseModal({
       setPaidBy(currentUserId)
       
       // For personal expenses, automatically include the friend if there's only one
+      // For group expenses, include all group members (avoid duplicates)
       const initialParticipants = expenseType === 'personal' && friends.length === 1 
         ? [currentUserId, friends[0].id]
+        : expenseType === 'group'
+        ? [currentUserId, ...friends.filter(f => f.id !== currentUserId).map(f => f.id)]
         : [currentUserId]
       
       setSelectedParticipants(initialParticipants)
@@ -166,7 +171,7 @@ export default function AddExpenseModal({
       const token = localStorage.getItem('token')
       
       const expenseData = {
-        group_id: expenseType === 'group' ? null : null,
+        group_id: expenseType === 'group' ? groupId : null,
         amount: parseFloat(amount),
         description: description.trim(),
         expense_type: expenseType,
@@ -211,7 +216,7 @@ export default function AddExpenseModal({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-white flex items-center">
               <DollarSign className="w-5 h-5 mr-2" />
-              Add an expense
+              Add {expenseType === 'group' ? 'group' : 'personal'} expense
             </h3>
             <button
               onClick={onClose}

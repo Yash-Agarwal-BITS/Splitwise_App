@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Users, Plus, Trash2, DollarSign } from 'lucide-react'
+import AddExpenseModal from '@/components/AddExpenseModal'
 
 interface GroupDetails {
   group_id: string
@@ -22,28 +23,28 @@ interface Member {
 }
 
 interface User {
-  user_id: number
+  user_id: string
   username: string
   email: string
 }
 
 interface Expense {
-  expense_id: number
-  paid_by: number
+  expense_id: string
+  paid_by: string
   amount: number
   description: string
   created_at: string
   users: User
   participants: {
-    participant_id: number
-    user_id: number
+    participant_id: string
+    user_id: string
     share: number
     users: User
   }[]
 }
 
 interface Friend {
-  id: number
+  id: string
   name: string
   email: string
 }
@@ -60,11 +61,13 @@ export default function GroupPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showAddMemberModal, setShowAddMemberModal] = useState(false)
-  const [selectedFriendId, setSelectedFriendId] = useState<number | null>(null)
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
   const [showFriendDropdown, setShowFriendDropdown] = useState(false)
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [showExpenseModal, setShowExpenseModal] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -75,6 +78,7 @@ export default function GroupPage() {
         const userId = userData.user_id || userData.id
         console.log('Setting currentUserId to:', userId, 'Type:', typeof userId)
         setCurrentUserId(userId)
+        setCurrentUser(userData)
       }
       
       await loadGroupDetails()
@@ -199,7 +203,7 @@ export default function GroupPage() {
         }))
         
         // Filter out friends who are already members of this group
-        const memberUserIds = members.map(member => parseInt(member.user_id))
+        const memberUserIds = members.map(member => member.user_id)
         const availableFriends = friendsData.filter((friend: Friend) => 
           !memberUserIds.includes(friend.id)
         )
@@ -336,6 +340,11 @@ export default function GroupPage() {
     }
   }
 
+  const handleExpenseSuccess = () => {
+    // Refresh expenses after adding a new one
+    loadGroupExpenses()
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -408,7 +417,7 @@ export default function GroupPage() {
                 </button>
               )}
               <button
-                onClick={() => {/* TODO: Add expense functionality */}}
+                onClick={() => setShowExpenseModal(true)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -499,7 +508,11 @@ export default function GroupPage() {
               ) : (
                 <div className="divide-y divide-gray-700">
                   {expenses.map((expense) => (
-                    <div key={expense.expense_id} className="p-6">
+                    <div 
+                      key={expense.expense_id} 
+                      className="p-6 hover:bg-gray-750 cursor-pointer transition-colors duration-200"
+                      onClick={() => router.push(`/expenses/${expense.expense_id}`)}
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-white font-medium">{expense.description}</h3>
                         <span className="text-lg font-semibold text-emerald-400">
@@ -525,6 +538,14 @@ export default function GroupPage() {
                           </div>
                         </div>
                       )}
+                      <div className="mt-3 pt-3 border-t border-gray-700">
+                        <p className="text-xs text-emerald-400 flex items-center">
+                          <span>Click to view details</span>
+                          <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -678,6 +699,24 @@ export default function GroupPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add Expense Modal */}
+      {currentUser && (
+        <AddExpenseModal
+          isOpen={showExpenseModal}
+          onClose={() => setShowExpenseModal(false)}
+          onSuccess={handleExpenseSuccess}
+          friends={members.map(member => ({
+            id: member.user_id,
+            name: member.username,
+            email: member.email
+          }))}
+          currentUserId={currentUser.user_id || currentUser.id}
+          currentUserName={currentUser.username || currentUser.name}
+          expenseType="group"
+          groupId={groupId}
+        />
       )}
     </div>
   )
